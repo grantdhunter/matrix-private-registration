@@ -2,6 +2,9 @@
     "address": ":8000",
     "matrixServer": "localhost:8000",
     "matrixSharedSecret": "",
+
+    "registrationServer": "localhost:8000",
+    "registrationTimeout": 86400,
     "registrationSecret": "",
     "redisServer": "",
     "redisPassword": "",

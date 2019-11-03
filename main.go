@@ -7,28 +7,31 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"github.com/go-redis/redis/v7"
 	"html/template"
 	"io/ioutil"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
-	"flag"
-	"math/rand"
 )
 
 type Configuration struct {
 	MatrixServer       string `json:"matrixServer"`
 	MatrixSharedSecret string `json:"matrixSharedSecret"`
 	Address            string `json:"address"`
-	RegistrationSecret string `json:"registrationSecret"`
-	RedisServer        string `json:"redisServer"`
-	RedisPassword      string `json:"redisPassword"`
-	RedisDb            int    `json:"redisDb"`
+
+	RegistrationServer  string `json:"registrationServer"`
+	RegistrationTimeout int64  `json:"registrationTimeout"`
+	RegistrationSecret  string `json:"registrationSecret"`
+	RedisServer         string `json:"redisServer"`
+	RedisPassword       string `json:"redisPassword"`
+	RedisDb             int    `json:"redisDb"`
 }
 
 type UserRequest struct {
@@ -71,7 +74,7 @@ func parse_response(resp *http.Response) map[string]string {
 
 type App struct {
 	Config Configuration
-	Redis *redis.Client
+	Redis  *redis.Client
 }
 
 func (app *App) registrationHandler(w http.ResponseWriter, r *http.Request) {
@@ -148,7 +151,6 @@ func (app *App) AuthMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
-
 		key := auth_parts[0]
 		client_hash := auth_parts[1]
 
@@ -188,13 +190,11 @@ func (app *App) AuthMiddleware(next http.Handler) http.Handler {
 
 		now := time.Now().Unix()
 
-
-		if date - now < 0 {
+		if date-now < 0 {
 			log.Println("Token expired.")
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
-
 
 		next.ServeHTTP(w, r)
 	})
@@ -215,13 +215,11 @@ func genString(length int64) string {
 	return b.String()
 }
 
-
 func (app *App) invite() {
 
 	key := genString(5)
 	salt := genString(25)
-	//timeout := int64(24*60*60)
-	timeout := int64(20)
+	timeout := app.Config.RegistrationTimeout
 	timestamp := time.Now().Unix() + timeout
 
 	token := fmt.Sprintf("%s.%d", salt, timestamp)
@@ -235,7 +233,7 @@ func (app *App) invite() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("https://%s/register?a=%s.%s\n", app.Config.MatrixServer, key, server_hash)
+	fmt.Printf("https://%s/register?a=%s.%s\n", app.Config.RegistrationServer, key, server_hash)
 
 }
 
@@ -269,6 +267,5 @@ func main() {
 		fmt.Println("Invite URL:")
 		app.invite()
 	}
-
 
 }
