@@ -1,0 +1,9 @@
+{
+    "address": ":8000",
+    "matrixServer": "localhost:8000",
+    "matrixSharedSecret": "",
+    "registrationSecret": "",
+    "redisServer": "",
+    "redisPassword": "",
+    "redisDb": 0
+}
