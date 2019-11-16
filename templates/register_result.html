@@ -17,8 +17,14 @@
         <div class="col">
           <div class="card">
             <div class="card-body">
-              <h4 class="card-title">Matrix Homeserver {{.matrixServer}} Private Registration</h4>
-              <p>{{.result}}</p>
+              <h4 class="card-title">Matrix Homeserver {{.MatrixServer}} Private Registration</h4>
+              <p>{{.Msg}}</p>
+              {{if .Success }}
+              <p>1. Go to <a href='https://riot.im/app/#/login'>https://riot.im/app/#/login</a> or checkout other applications <a href='https://about.riot.im/'>https://about.riot.im/</a></p>
+              <p>2. change the matrix server to https://{{.MatrixServer}}</p>
+              <img src="{{ .BasePath }}static/riot_login.png" style="margin-left: 2em;">
+              <p>3. Login</p>
+              {{end}}
             </div>
           </div>
         </div>

@@ -14,6 +14,7 @@ WORKDIR /src/app
 COPY --from=builder /src/app/matrix-private-registration .
 
 COPY ./templates ./templates
+COPY ./static ./static
 
 EXPOSE 8000
 ENTRYPOINT ["/src/app/matrix-private-registration"]

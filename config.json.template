@@ -8,5 +8,6 @@
     "registrationSecret": "",
     "redisServer": "",
     "redisPassword": "",
-    "redisDb": 0
+    "redisDb": 0,
+    "mock": false
 }

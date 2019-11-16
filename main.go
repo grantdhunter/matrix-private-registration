@@ -26,12 +26,14 @@ type Configuration struct {
 	MatrixSharedSecret string `json:"matrixSharedSecret"`
 	Address            string `json:"address"`
 
-	RegistrationServer  string `json:"registrationServer"`
-	RegistrationTimeout int64  `json:"registrationTimeout"`
-	RegistrationSecret  string `json:"registrationSecret"`
-	RedisServer         string `json:"redisServer"`
-	RedisPassword       string `json:"redisPassword"`
-	RedisDb             int    `json:"redisDb"`
+	RegistrationServer   string `json:"registrationServer"`
+	RegistrationBasePath string `josn:"registrationBasePath"`
+	RegistrationTimeout  int64  `json:"registrationTimeout"`
+	RegistrationSecret   string `json:"registrationSecret"`
+	RedisServer          string `json:"redisServer"`
+	RedisPassword        string `json:"redisPassword"`
+	RedisDb              int    `json:"redisDb"`
+	Mock                 bool   `json:"mock"`
 }
 
 type UserRequest struct {
@@ -77,22 +79,36 @@ type App struct {
 	Redis  *redis.Client
 }
 
+type TemplateContext struct {
+	MatrixServer string
+	Success      bool
+	Msg          string
+	BasePath     string
+}
+
 func (app *App) registrationHandler(w http.ResponseWriter, r *http.Request) {
-	template_context := map[string]string{"matrixServer": app.Config.MatrixServer}
+
 	if r.Method == "GET" {
+		template_context := TemplateContext{MatrixServer: app.Config.MatrixServer,
+			Success:  false,
+			Msg:      "",
+			BasePath: app.Config.RegistrationBasePath}
 		t, _ := template.ParseFiles("templates/register.html")
 		t.Execute(w, template_context)
 	} else if r.Method == "POST" {
 		r.ParseForm()
-		result := app.registerUser(r.Form["username"][0], r.Form["password"][0])
+		success, msg := app.registerUser(r.Form["username"][0], r.Form["password"][0])
 		t, _ := template.ParseFiles("templates/register_result.html")
-		template_context["result"] = result
+		template_context := TemplateContext{MatrixServer: app.Config.MatrixServer,
+			Success:  success,
+			Msg:      msg,
+			BasePath: app.Config.RegistrationBasePath}
 		t.Execute(w, template_context)
 	}
 
 }
 
-func (app *App) registerUser(user string, password string) string {
+func (app *App) registerUser(user string, password string) (bool, string) {
 	url := fmt.Sprintf("https://%s/_matrix/client/r0/admin/register", app.Config.MatrixServer)
 
 	resp, _ := http.Get(url)
@@ -119,18 +135,19 @@ func (app *App) registerUser(user string, password string) string {
 
 	buf, _ := json.Marshal(&data)
 
-	if true {
-		resp, _ = http.Post(url, "application/json", bytes.NewBuffer(buf))
-		body := parse_response(resp)
-
-		if resp.StatusCode == http.StatusOK {
-			return "All signed up!"
-		} else {
-			return fmt.Sprintf("Something when wrong: %d, %s", resp.StatusCode, body["error"])
-		}
+	if app.Config.Mock {
+		log.Println("Mock Request returning happy.")
+		return true, "Test complete"
 	}
 
-	return "Test complete"
+	resp, _ = http.Post(url, "application/json", bytes.NewBuffer(buf))
+	body = parse_response(resp)
+
+	if resp.StatusCode == http.StatusOK {
+		return true, "All signed up!"
+	} else {
+		return false, fmt.Sprintf("Something when wrong: %d, %s", resp.StatusCode, body["error"])
+	}
 }
 
 func (app *App) AuthMiddleware(next http.Handler) http.Handler {
@@ -233,7 +250,7 @@ func (app *App) invite() {
 		log.Fatal(err)
 	}
 
-	fmt.Printf("https://%s/register?a=%s.%s\n", app.Config.RegistrationServer, key, server_hash)
+	fmt.Printf("https://%s%s/register?a=%s.%s\n", app.Config.RegistrationServer, app.Config.RegistrationBasePath, key, server_hash)
 
 }
 
@@ -254,7 +271,9 @@ func main() {
 
 	if *server {
 		fmt.Println("Starting Server...")
-		http.Handle("/", app.AuthMiddleware(http.HandlerFunc(app.registrationHandler)))
+		http.Handle(fmt.Sprintf("%sstatic/", app.Config.RegistrationBasePath),
+			http.StripPrefix(fmt.Sprintf("%sstatic/", app.Config.RegistrationBasePath), http.FileServer(http.Dir("static"))))
+		http.Handle(fmt.Sprintf("%s", app.Config.RegistrationBasePath), app.AuthMiddleware(http.HandlerFunc(app.registrationHandler)))
 
 		err := http.ListenAndServe(app.Config.Address, nil)
 
